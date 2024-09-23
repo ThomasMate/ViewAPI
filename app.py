@@ -3,40 +3,45 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests
 
-# Path to store the counter in a text file
-counter_file = "counter.txt"
+# Enable CORS for all routes (can be configured more specifically in production)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Function to read the counter from the file
+# Environment variable for counter file path (adjust this based on your deployment environment)
+COUNTER_FILE = os.getenv("COUNTER_FILE", "counter.txt")
+
+# Ensure counter file exists
+def initialize_counter():
+    if not os.path.exists(COUNTER_FILE):
+        with open(COUNTER_FILE, "w") as file:
+            file.write("0")
+
+# Read the current counter value
 def get_counter():
-    if os.path.exists(counter_file):
-        with open(counter_file, "r") as file:
-            return int(file.read().strip())
-    return 0
+    with open(COUNTER_FILE, "r") as file:
+        return int(file.read().strip())
 
-# Function to increment and save the counter to the file
+# Increment and save the counter value
 def increment_counter():
-    current_count = get_counter() + 1
-    with open(counter_file, "w") as file:
-        file.write(str(current_count))
-    return current_count
+    new_count = get_counter() + 1
+    with open(COUNTER_FILE, "w") as file:
+        file.write(str(new_count))
+    return new_count
 
 @app.route('/api/get_count', methods=['GET'])
 def get_count():
-    # Return the current view count
     count = get_counter()
     return jsonify({"count": count})
 
 @app.route('/api/increment_count', methods=['POST'])
 def increment_count():
-    # Increment the view count and return the updated value
     new_count = increment_counter()
     return jsonify({"count": new_count})
 
 if __name__ == '__main__':
-    # Create the counter file if it doesn't exist
-    if not os.path.exists(counter_file):
-        with open(counter_file, "w") as file:
-            file.write("0")
-    app.run(debug=True)
+    # Initialize counter file
+    initialize_counter()
+
+    # For production, app.run() should not be used. Instead, use a WSGI server like Gunicorn.
+    # The app.run() method should only be used for local testing.
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
